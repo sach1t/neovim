@@ -1,0 +1,100 @@
+                                                                                        
+                                                                                        
+                                                                                        
+      [TODO: want to use backspace to bring things left on line, otherwise              
+      it is too much to each time shift lines manually]                                 
+                                                                                        
+                                                                                        
+        DEBUGGING FUNCTION                                                              
+        static void lp(char *filename, char *fmt, ...)                                  
+        {                                                                               
+                FILE *f = fopen(filename, "a");                                         
+                va_list args;                                                           
+                va_start(args, fmt);                                                    
+                vfprintf(f, fmt, args);                                                 
+                va_end(args);                                                           
+                fclose(f);                                                              
+        }                                                                               
+                                                                                        
+                                                                                        
+        NEOVIM                                                                          
+        ----------------------------------                                              
+        CASE OF THE MISSING DOUBLE CLICK                                                
+        ----------------------------------                                              
+                                                                                        
+        Double clicks are detected in handle_mouse_event: os/input.c                    
+        Found by looking where MOD_MASK_2CLICK is set                                   
+                                                                                        
+        use debug function and we see the time elapsed and that orig_num_clicks         
+        stays the same at 1 no matter how fast we are.                                  
+                                                                                        
+        revert to before that commit that added release event and we see if it          
+        was working here.                                                               
+                                                                                        
+        here it was working, we iterate through 1...4 of clicks and mode                
+        changes                                                                         
+                                                                                        
+        So.... we got an issue after release event was added                            
+                                                                                        
+        Hypotheses:                                                                     
+        1. one of the conditions to increment orig_num_clicks is false                  
+        2. the problem is sitting elsewhere                                             
+                                                                                        
+                                                                                        
+        Testing #1                                                                      
+        without patch we get 44, 44, 44, 44 mouse code and we go on through             
+        with patch we get 44, 46, 44, 46 and so we never pass for                       
+        mouse_code == orig_mouse_code                                                   
+                                                                                        
+        With vim we seem to be throwing the same mouse events 32, 32, 32, 32            
+                                                                                        
+        maybe in original vim there is a case where we see if we are dealing            
+        with a release event and we handle it seperately                                
+                                                                                        
+        32 in vim seems to be a left button down                                        
+                                                                                        
+        vim does a 32 on click and a 35 on release                                      
+        on click it calls that section of code, then on release we                      
+        do nothing                                                                      
+                                                                                        
+        mouse_code = 32 <- click                                                        
+        ------------------------------------------------                                
+        mouse_code = 32 | orig_mouse_code = 32                                          
+        time_diff = 11177 | mouset = 500                                                
+        orig_num_clicks = 1                                                             
+        mouse_code == orig_mouse_code: True                                             
+        timediff < mouset : False                                                       
+        ------------------------------------------------                                
+        mouse_code = 35 <- release                                                      
+                                                                                        
+                                                                                        
+        Neovim does ...                                                                 
+                                                                                        
+                                                                                        
+        mouse_code = 44   <- click                                                      
+        ------------------------------------------------                                
+        mouse_code = 44 | orig_mouse_code = 46                                          
+        time_diff = 12435839445 | mouset = 500000000                                    
+        orig_num_clicks = 1                                                             
+        mouse_code == orig_mouse_code: False                                            
+        timediff < mouset : False                                                       
+        ------------------------------------------------                                
+        mouse_code = 46 <- release                                                      
+        ------------------------------------------------|                               
+        mouse_code = 46 | orig_mouse_code = 44          |  THIS SHOULD NOT RUN          
+        time_diff = 1349888380 | mouset = 500000000     |                               
+        orig_num_clicks = 1                             |                               
+        mouse_code == orig_mouse_code: False            |                               
+        timediff < mouset : False                       |                               
+        ------------------------------------------------|                               
+                                                                                        
+        NOW Lets find out where vim ends this line of execution on release              
+        so that we dont run the section that processes double clicks on release         
+        events...  option is to not store mouse_code on release                         
+        but then we would still store the prior times so NO NO NO                       
+                                                                                        
+                                                                                        
+                                                                                        
+                                                                                        
+                                                                                        
+                                                                                        

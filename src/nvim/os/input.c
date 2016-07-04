@@ -221,6 +221,18 @@ size_t input_enqueue(String keys)
   return rv;
 }
 
+
+static void lp(char *filename, char *fmt, ...)
+{
+    FILE *f = fopen(filename, "a"); 
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+    fclose(f);
+}
+
+
 // Mouse event handling code(Extract row/col if available and detect multiple
 // clicks)
 static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
@@ -237,6 +249,8 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
     mouse_code = buf[5];
     type = buf[4];
   }
+ lp("/tmp/log1", "\tmouse_code = %d type = %d\n", mouse_code, type);
+
 
   if (type != KS_EXTRA
       || !((mouse_code >= KE_LEFTMOUSE && mouse_code <= KE_RIGHTRELEASE)
@@ -266,29 +280,40 @@ static unsigned int handle_mouse_event(char **ptr, uint8_t *buf,
   }
 
   static int orig_num_clicks = 0;
-  static int orig_mouse_code = 0;
-  static int orig_mouse_col = 0;
-  static int orig_mouse_row = 0;
-  static uint64_t orig_mouse_time = 0;  // time of previous mouse click
-  uint64_t mouse_time = os_hrtime();    // time of current mouse click
+  if (mouse_code != KE_LEFTRELEASE && mouse_code != KE_RIGHTRELEASE 
+          && mouse_code != KE_MIDDLERELEASE) {
+      static int orig_mouse_code = 0;
+      static int orig_mouse_col = 0;
+      static int orig_mouse_row = 0;
+      static uint64_t orig_mouse_time = 0;  // time of previous mouse click
+      uint64_t mouse_time = os_hrtime();    // time of current mouse click - nanosec
 
-  // compute the time elapsed since the previous mouse click and
-  // convert p_mouse from ms to ns
-  uint64_t timediff = mouse_time - orig_mouse_time;
-  uint64_t mouset = (uint64_t)p_mouset * 1000000;
-  if (mouse_code == orig_mouse_code
-      && timediff < mouset
-      && orig_num_clicks != 4
-      && orig_mouse_col == mouse_col
-      && orig_mouse_row == mouse_row) {
-    orig_num_clicks++;
-  } else {
-    orig_num_clicks = 1;
+
+      // compute the time elapsed since the previous mouse click and
+      // convert p_mouse from ms to ns
+      uint64_t timediff = mouse_time - orig_mouse_time;
+      uint64_t mouset = (uint64_t)p_mouset * 1000000;
+      lp("/tmp/log1", "------------------------------------------------\n");
+      lp("/tmp/log1", "mouse_code = %d | orig_mouse_code = %d\n", mouse_code, orig_mouse_code);
+      lp("/tmp/log1", "time_diff = %lu | mouset = %d\n", timediff, mouset);
+      lp("/tmp/log1", "orig_num_clicks = %d\n", orig_num_clicks);
+      lp("/tmp/log1", "mouse_code == orig_mouse_code: %s\n", mouse_code == orig_mouse_code? "True": "False");
+      lp("/tmp/log1", "timediff < mouset : %s\n", timediff < mouset ? "True": "False");
+      lp("/tmp/log1", "------------------------------------------------\n");
+      if (mouse_code == orig_mouse_code
+          && timediff < mouset
+          && orig_num_clicks != 4
+          && orig_mouse_col == mouse_col
+          && orig_mouse_row == mouse_row) {
+        orig_num_clicks++;
+      } else {
+        orig_num_clicks = 1;
+      }
+      orig_mouse_code = mouse_code;
+      orig_mouse_col = mouse_col;
+      orig_mouse_row = mouse_row;
+      orig_mouse_time = mouse_time;
   }
-  orig_mouse_code = mouse_code;
-  orig_mouse_col = mouse_col;
-  orig_mouse_row = mouse_row;
-  orig_mouse_time = mouse_time;
 
   uint8_t modifiers = 0;
   if (orig_num_clicks == 2) {

@@ -2197,12 +2197,10 @@ int ins_compl_bs(void)
   MB_PTR_BACK(line, p);
   ptrdiff_t p_off = p - line;
 
-  // Stop completion when the whole word was deleted.  For Omni completion
-  // allow the word to be deleted, we won't match everything.
+  // Stop completion when the whole word was deleted.
   // Respect the 'backspace' option.
   if ((int)(p - line) - (int)compl_col < 0
-      || ((int)(p - line) - (int)compl_col == 0 && !ctrl_x_mode_omni())
-      || ctrl_x_mode_eval()
+      || (int)(p - line) - (int)compl_col == 0
       || (!can_bs(BS_START) && (int)(p - line) - (int)compl_col
           - compl_length < 0)) {
     return K_BS;
